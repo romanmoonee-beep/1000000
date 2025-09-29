@@ -1,0 +1,25 @@
+{
+  "name": "@cargo/bot",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx watch src/bot.ts",
+    "build": "tsc",
+    "start": "node dist/bot.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cargo/shared": "*",
+    "@cargo/database": "*", 
+    "@cargo/config": "*",
+    "grammy": "^1.32.0",
+    "@grammyjs/conversations": "^1.2.0",
+    "@grammyjs/menu": "^1.2.2",
+    "@grammyjs/hydrate": "^1.4.1",
+    "@grammyjs/parse-mode": "^1.10.0",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.0"
+  }
+}

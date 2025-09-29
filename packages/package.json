@@ -1,0 +1,9 @@
+{
+  "name": "packages",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "database", 
+    "config"
+  ]
+}

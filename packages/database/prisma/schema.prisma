@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== ОСНОВНЫЕ СУЩНОСТИ =====
+
+model Country {
+  id                  Int                 @id @default(autoincrement())
+  name                String              @db.VarChar(100)
+  code                String              @unique @db.VarChar(3)
+  flagEmoji           String              @map("flag_emoji") @db.VarChar(10)
+  currency            String?             @db.VarChar(3)
+  isActive            Boolean             @default(true) @map("is_active")
+  shippingAvailable   Boolean             @default(true) @map("shipping_available")
+  purchaseAvailable   Boolean             @default(true) @map("purchase_available")
+  purchaseCommission  Decimal             @default(5.0) @map("purchase_commission") @db.Decimal(5, 2)
+  popularityScore     Int                 @default(0) @map("popularity_score")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  warehouses          Warehouse[]
+  shippingTariffs     ShippingTariff[]
+  shippingOrders      ShippingOrder[]
+  purchaseOrders      PurchaseOrder[]
+  fixedPriceProducts  FixedPriceProduct[]
+
+  @@map("countries")
+}
+
+model Warehouse {
+  id               Int      @id @default(autoincrement())
+  countryId        Int      @map("country_id")
+  name             String   @db.VarChar(255)
+  address          String   @db.Text
+  phone            String?  @db.VarChar(50)
+  email            String?  @db.VarChar(255)
+  workingHours     String?  @map("working_hours") @db.VarChar(255)
+  timezone         String?  @db.VarChar(50)
+  maxWeightKg      Decimal  @default(50) @map("max_weight_kg") @db.Decimal(5, 2)
+  maxDeclaredValue Decimal  @default(2000) @map("max_declared_value") @db.Decimal(10, 2)
+  restrictions     String?  @db.Text
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  country Country @relation(fields: [countryId], references: [id])
+
+  @@map("warehouses")
+}
+
+model User {
+  id               BigInt    @id @default(autoincrement())
+  telegramId       BigInt    @unique @map("telegram_id")
+  username         String?   @db.VarChar(255)
+  firstName        String?   @map("first_name") @db.VarChar(255)
+  lastName         String?   @map("last_name") @db.VarChar(255)
+  phone            String?   @db.VarChar(20)
+  email            String?   @db.VarChar(255)
+  cityId           Int?      @map("city_id")
+  address          String?   @db.Text
+  balance          Decimal   @default(0) @db.Decimal(10, 2)
+  isVip            Boolean   @default(false) @map("is_vip")
+  vipExpiresAt     DateTime? @map("vip_expires_at")
+  language         String    @default("ru") @db.VarChar(5)
+  isActive         Boolean   @default(true) @map("is_active")
+  isBlocked        Boolean   @default(false) @map("is_blocked")
+  registrationDate DateTime  @default(now()) @map("registration_date")
+  lastActivity     DateTime  @default(now()) @map("last_activity")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  city            City?             @relation(fields: [cityId], references: [id])
+  addresses       UserAddress[]
+  shippingOrders  ShippingOrder[]
+  purchaseOrders  PurchaseOrder[]
+  transactions    Transaction[]
+  supportChats    SupportChat[]
+
+  @@map("users")
+}
+
+model City {
+  id           Int     @id @default(autoincrement())
+  name         String  @db.VarChar(255)
+  region       String? @db.VarChar(255)
+  countryCode  String  @default("RU") @map("country_code") @db.VarChar(3)
+  isPopular    Boolean @default(false) @map("is_popular")
+  population   Int?
+  isActive     Boolean @default(true) @map("is_active")
+
+  // Relations
+  users Users[]
+
+  @@map("cities")
+}
+
+model UserAddress {
+  id        Int      @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  alias     String   @db.VarChar(100)
+  cityId    Int      @map("city_id")
+  address   String   @db.Text
+  isDefault Boolean  @default(false) @map("is_default")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  city City @relation(fields: [cityId], references: [id])
+
+  @@map("user_addresses")
+}
+
+// ===== ТАРИФЫ И ПРОДУКТЫ =====
+
+model ShippingTariff {
+  id              Int      @id @default(autoincrement())
+  countryFromId   Int      @map("country_from_id")
+  countryToId     Int      @map("country_to_id")
+  pricePerKg      Decimal  @map("price_per_kg") @db.Decimal(8, 2)
+  minPrice        Decimal  @default(0) @map("min_price") @db.Decimal(8, 2)
+  deliveryDaysMin Int?     @map("delivery_days_min")
+  deliveryDaysMax Int?     @map("delivery_days_max")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  countryFrom Country @relation(fields: [countryFromId], references: [id])
+
+  @@map("shipping_tariffs")
+}
+
+model ProductCategory {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @db.VarChar(100)
+  icon               String?             @db.VarChar(20)
+  description        String?             @db.Text
+  sortOrder          Int                 @default(0) @map("sort_order")
+  isActive           Boolean             @default(true) @map("is_active")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  fixedPriceProducts FixedPriceProduct[]
+
+  @@map("product_categories")
+}
+
+model FixedPriceProduct {
+  id              Int      @id @default(autoincrement())
+  countryId       Int      @map("country_id")
+  categoryId      Int      @map("category_id")
+  name            String   @db.VarChar(500)
+  description     String?  @db.Text
+  price           Decimal  @db.Decimal(10, 2)
+  currency        String   @default("USD") @db.VarChar(3)
+  estimatedWeight Decimal? @map("estimated_weight") @db.Decimal(5, 2)
+  imageUrl        String?  @map("image_url") @db.Text
+  productUrl      String?  @map("product_url") @db.Text
+  sku             String?  @db.VarChar(100)
+  isPopular       Boolean  @default(false) @map("is_popular")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  country        Country         @relation(fields: [countryId], references: [id])
+  category       ProductCategory @relation(fields: [categoryId], references: [id])
+  purchaseOrders PurchaseOrder[]
+
+  @@map("fixed_price_products")
+}
+
+// ===== ЗАКАЗЫ =====
+
+enum OrderStatus {
+  CREATED
+  PAID
+  WAREHOUSE_RECEIVED
+  PROCESSING
+  SHIPPED
+  CUSTOMS
+  IN_TRANSIT
+  READY_PICKUP
+  DELIVERED
+  PROBLEM
+  CANCELLED
+
+  @@map("OrderStatus")
+}
+
+enum PurchaseOrderStatus {
+  CREATED
+  PAID
+  PURCHASING
+  PURCHASED
+  WAREHOUSE_RECEIVED
+  SHIPPED
+  DELIVERED
+  PROBLEM
+  REFUNDED
+
+  @@map("PurchaseOrderStatus")
+}
+
+model ShippingOrder {
+  id               BigInt      @id @default(autoincrement())
+  userId           BigInt      @map("user_id")
+  countryFromId    Int         @map("country_from_id")
+  weight           Decimal     @db.Decimal(5, 2)
+  declaredValue    Decimal?    @map("declared_value") @db.Decimal(10, 2)
+  declaredCurrency String      @default("USD") @map("declared_currency") @db.VarChar(3)
+  description      String?     @db.Text
+  recipientName    String      @map("recipient_name") @db.VarChar(255)
+  recipientPhone   String      @map("recipient_phone") @db.VarChar(50)
+  recipientAddress String      @map("recipient_address") @db.Text
+  totalCost        Decimal     @map("total_cost") @db.Decimal(10, 2)
+  status           OrderStatus @default(CREATED)
+  adminComment     String?     @map("admin_comment") @db.Text
+  trackNumber      String?     @map("track_number") @db.VarChar(100)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  user            User                  @relation(fields: [userId], references: [id])
+  countryFrom     Country               @relation(fields: [countryFromId], references: [id])
+  statusHistory   OrderStatusHistory[]
+  transactions    Transaction[]
+
+  @@map("shipping_orders")
+}
+
+model PurchaseOrder {
+  id                BigInt              @id @default(autoincrement())
+  userId            BigInt              @map("user_id")
+  countryId         Int                 @map("country_id")
+  productId         Int?                @map("product_id")
+  productUrl        String?             @map("product_url") @db.Text
+  productName       String              @map("product_name") @db.VarChar(500)
+  quantity          Int                 @default(1)
+  productPrice      Decimal             @map("product_price") @db.Decimal(10, 2)
+  productCurrency   String              @default("USD") @map("product_currency") @db.VarChar(3)
+  commission        Decimal             @db.Decimal(10, 2)
+  deliveryCost      Decimal?            @map("delivery_cost") @db.Decimal(10, 2)
+  totalCost         Decimal             @map("total_cost") @db.Decimal(10, 2)
+  prepaymentAmount  Decimal             @map("prepayment_amount") @db.Decimal(10, 2)
+  status            PurchaseOrderStatus @default(CREATED)
+  adminComment      String?             @map("admin_comment") @db.Text
+  customerNotes     String?             @map("customer_notes") @db.Text
+  actualWeight      Decimal?            @map("actual_weight") @db.Decimal(5, 2)
+  trackNumber       String?             @map("track_number") @db.VarChar(100)
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  user            User                  @relation(fields: [userId], references: [id])
+  country         Country               @relation(fields: [countryId], references: [id])
+  product         FixedPriceProduct?    @relation(fields: [productId], references: [id])
+  statusHistory   OrderStatusHistory[]
+  transactions    Transaction[]
+
+  @@map("purchase_orders")
+}
+
+model OrderStatusHistory {
+  id            BigInt    @id @default(autoincrement())
+  orderId       BigInt    @map("order_id")
+  orderType     String    @map("order_type") @db.VarChar(20) // 'shipping', 'purchase'
+  oldStatus     String?   @map("old_status") @db.VarChar(50)
+  newStatus     String    @map("new_status") @db.VarChar(50)
+  comment       String?   @db.Text
+  adminId       Int?      @map("admin_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  admin           Admin?          @relation(fields: [adminId], references: [id])
+  shippingOrder   ShippingOrder?  @relation(fields: [orderId], references: [id])
+  purchaseOrder   PurchaseOrder?  @relation(fields: [orderId], references: [id])
+
+  @@map("order_status_history")
+}
+
+// ===== ФИНАНСЫ =====
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  BONUS
+  WITHDRAWAL
+
+  @@map("TransactionType")
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("TransactionStatus")
+}
+
+model Transaction {
+  id            BigInt            @id @default(autoincrement())
+  userId        BigInt            @map("user_id")
+  orderId       BigInt?           @map("order_id")
+  orderType     String?           @map("order_type") @db.VarChar(20)
+  amount        Decimal           @db.Decimal(10, 2)
+  type          TransactionType
+  paymentMethod String?           @map("payment_method") @db.VarChar(50)
+  paymentId     String?           @map("payment_id") @db.VarChar(255)
+  status        TransactionStatus @default(PENDING)
+  description   String?           @db.Text
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  completedAt   DateTime?         @map("completed_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  user            User            @relation(fields: [userId], references: [id])
+  shippingOrder   ShippingOrder?  @relation(fields: [orderId], references: [id])
+  purchaseOrder   PurchaseOrder?  @relation(fields: [orderId], references: [id])
+
+  @@map("transactions")
+}
+
+// ===== АДМИНИСТРИРОВАНИЕ =====
+
+enum AdminRole {
+  SUPER_ADMIN
+  ORDER_MANAGER
+  FINANCE_MANAGER
+  SUPPORT_OPERATOR
+  CONTENT_MANAGER
+
+  @@map("AdminRole")
+}
+
+model Admin {
+  id            Int                   @id @default(autoincrement())
+  telegramId    BigInt                @unique @map("telegram_id")
+  username      String?               @db.VarChar(255)
+  firstName     String?               @map("first_name") @db.VarChar(255)
+  lastName      String?               @map("last_name") @db.VarChar(255)
+  email         String?               @db.VarChar(255)
+  role          AdminRole
+  permissions   Json?
+  isActive      Boolean               @default(true) @map("is_active")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  lastLogin     DateTime?             @map("last_login")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  // Relations
+  logs          AdminLog[]
+  statusHistory OrderStatusHistory[]
+  supportChats  SupportChat[]
+  dashboardTokens AdminDashboardToken[]
+
+  @@map("admins")
+}
+
+model AdminLog {
+  id         BigInt   @id @default(autoincrement())
+  adminId    Int      @map("admin_id")
+  action     String   @db.VarChar(255)
+  targetType String?  @map("target_type") @db.VarChar(50)
+  targetId   BigInt?  @map("target_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.Inet
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  admin Admin @relation(fields: [adminId], references: [id])
+
+  @@map("admin_logs")
+}
+
+model AdminDashboardToken {
+  id          String    @id @default(uuid())
+  adminId     Int       @map("admin_id")
+  token       String    @unique @db.VarChar(32)
+  accessKey   String    @map("access_key") @db.VarChar(16)
+  expiresAt   DateTime  @map("expires_at")
+  isUsed      Boolean   @default(false) @map("is_used")
+  usedAt      DateTime? @map("used_at")
+  ipAddress   String?   @map("ip_address") @db.Inet
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  admin Admin @relation(fields: [adminId], references: [id])
+
+  @@map("admin_dashboard_tokens")
+}
+
+// ===== ПОДДЕРЖКА =====
+
+enum ChatStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  WAITING_ADMIN
+  CLOSED
+
+  @@map("ChatStatus")
+}
+
+model SupportChat {
+  id          BigInt      @id @default(autoincrement())
+  userId      BigInt      @map("user_id")
+  adminId     Int?        @map("admin_id")
+  subject     String?     @db.VarChar(255)
+  status      ChatStatus  @default(OPEN)
+  priority    Int         @default(1) // 1-low, 2-medium, 3-high
+  rating      Int?        // 1-5 stars
+  createdAt   DateTime    @default(now()) @map("created_at")
+  closedAt    DateTime?   @map("closed_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  user     User             @relation(fields: [userId], references: [id])
+  admin    Admin?           @relation(fields: [adminId], references: [id])
+  messages ChatMessage[]
+
+  @@map("support_chats")
+}
+
+model ChatMessage {
+  id        BigInt      @id @default(autoincrement())
+  chatId    BigInt      @map("chat_id")
+  senderId  BigInt      @map("sender_id")
+  senderType String     @map("sender_type") @db.VarChar(10) // 'user', 'admin'
+  message   String      @db.Text
+  messageType String   @default("text") @map("message_type") @db.VarChar(20)
+  metadata  Json?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  chat SupportChat @relation(fields: [chatId], references: [id])
+
+  @@map("chat_messages")
+}
+
+// ===== НАСТРОЙКИ И КОНФИГУРАЦИЯ =====
+
+model SystemSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.Text
+  isPublic    Boolean  @default(false) @map("is_public")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model Notification {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  type      String   @db.VarChar(50)
+  isRead    Boolean  @default(false) @map("is_read")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
